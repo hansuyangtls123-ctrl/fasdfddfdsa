@@ -1,0 +1,230 @@
+-- [Mobile] All Weapons + Skin UnlockAll - Improved v2
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local CosmeticLibrary = require(ReplicatedStorage.Modules:WaitForChild("CosmeticLibrary", 10))
+local DataController = require(player.PlayerScripts.Controllers:WaitForChild("PlayerDataController", 10))
+
+-- ==================== UI (드래그 가능) ====================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 360, 0, 520)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -260)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 55)
+Title.BackgroundTransparency = 1
+Title.Text = "🔓 All Weapons + Skin Unlock"
+Title.TextColor3 = Color3.fromRGB(255, 90, 90)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -30, 0, 90)
+Status.Position = UDim2.new(0, 15, 0, 65)
+Status.BackgroundTransparency = 1
+Status.Text = "준비 완료\n무기와 스킨을 서버에 Unlock합니다."
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.TextSize = 14
+Status.TextWrapped = true
+Status.Font = Enum.Font.Gotham
+Status.Parent = MainFrame
+
+local ProgressBG = Instance.new("Frame")
+ProgressBG.Size = UDim2.new(1, -40, 0, 12)
+ProgressBG.Position = UDim2.new(0, 20, 0, 165)
+ProgressBG.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+ProgressBG.Parent = MainFrame
+Instance.new("UICorner", ProgressBG).CornerRadius = UDim.new(1,0)
+
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Size = UDim2.new(0, 0, 1, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(80, 200, 255)
+ProgressBar.Parent = ProgressBG
+Instance.new("UICorner", ProgressBar).CornerRadius = UDim.new(1,0)
+
+-- 버튼들
+local WeaponsBtn = Instance.new("TextButton")
+WeaponsBtn.Size = UDim2.new(0.9, 0, 0, 55)
+WeaponsBtn.Position = UDim2.new(0.05, 0, 0, 200)
+WeaponsBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+WeaponsBtn.Text = "모든 무기 Unlock"
+WeaponsBtn.TextColor3 = Color3.new(1,1,1)
+WeaponsBtn.TextSize = 16
+WeaponsBtn.Font = Enum.Font.GothamBold
+WeaponsBtn.Parent = MainFrame
+Instance.new("UICorner", WeaponsBtn).CornerRadius = UDim.new(0,10)
+
+local SkinBtn = Instance.new("TextButton")
+SkinBtn.Size = UDim2.new(0.9, 0, 0, 55)
+SkinBtn.Position = UDim2.new(0.05, 0, 0, 270)
+SkinBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+SkinBtn.Text = "모든 Skin Unlock"
+SkinBtn.TextColor3 = Color3.new(1,1,1)
+SkinBtn.TextSize = 16
+SkinBtn.Font = Enum.Font.GothamBold
+SkinBtn.Parent = MainFrame
+Instance.new("UICorner", SkinBtn).CornerRadius = UDim.new(0,10)
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
+CloseBtn.Position = UDim2.new(1, -45, 0, 8)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.TextSize = 22
+CloseBtn.Parent = MainFrame
+
+-- ==================== 드래그 기능 ====================
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+MainFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- ==================== Remote 찾기 ====================
+local equipRemote = nil
+local function findRemotes()
+    local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
+    if remotesFolder then
+        local data = remotesFolder:FindFirstChild("Data")
+        if data then
+            equipRemote = data:FindFirstChild("EquipCosmetic") or data:FindFirstChild("Equip") 
+        end
+    end
+end
+findRemotes()
+
+-- ==================== Unlock 함수 ====================
+local function unlockWeapon(weaponName)
+    if not equipRemote then return false end
+    for attempt = 1, 4 do
+        pcall(function()
+            equipRemote:FireServer(weaponName, "Ownership", weaponName, {})
+            task.wait(0.07)
+            equipRemote:FireServer(weaponName, "Skin", "Default", {})
+            task.wait(0.07)
+            equipRemote:FireServer("AllWeapons", weaponName, "Unlock", {})
+        end)
+        task.wait(0.16)
+    end
+    return true
+end
+
+local function unlockSkin(name)
+    if not equipRemote then return false end
+    for attempt = 1, 3 do
+        local success = pcall(function()
+            equipRemote:FireServer("AllWeapons", "Skin", name, {IsInverted = false})
+        end)
+        if success then return true end
+        task.wait(0.13)
+    end
+    return false
+end
+
+-- ==================== 실행 ====================
+local function updateProgress(bar, value)
+    TweenService:Create(bar, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {Size = UDim2.new(value, 0, 1, 0)}):Play()
+end
+
+WeaponsBtn.MouseButton1Click:Connect(function()
+    if WeaponsBtn.Text:find("중") then return end
+    WeaponsBtn.Text = "무기 Unlock 진행 중..."
+    WeaponsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+    task.spawn(function()
+        local count = 0
+        local total = 0
+
+        for name, _ in pairs(CosmeticLibrary.Cosmetics) do
+            if name:find("Knife") or name:find("Gun") or name:find("Weapon") or name:find("Sword") then
+                total += 1
+                Status.Text = string.format("무기 Unlock 중...\n%d/%d\n%s", count, total, name)
+                unlockWeapon(name)
+                count += 1
+                updateProgress(ProgressBar, count / total)
+                task.wait(0.18)
+            end
+        end
+
+        Status.Text = string.format("무기 Unlock 완료!\n총 %d개 시도", count)
+        WeaponsBtn.Text = "무기 Unlock 완료 ✓"
+    end)
+end)
+
+SkinBtn.MouseButton1Click:Connect(function()
+    if SkinBtn.Text:find("중") then return end
+    SkinBtn.Text = "Skin Unlock 진행 중..."
+    SkinBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+
+    task.spawn(function()
+        local success = 0
+        local total = 0
+
+        for name, cosmetic in pairs(CosmeticLibrary.Cosmetics) do
+            if cosmetic.Type == "Skin" and not name:lower():find("finisher") then
+                total += 1
+                Status.Text = string.format("Skin Unlock 중...\n%d/%d\n%s", success, total, name)
+                
+                if unlockSkin(name) then success += 1 end
+                
+                updateProgress(ProgressBar, success / total)
+                task.wait(0.17)
+            end
+        end
+
+        Status.Text = string.format("Skin Unlock 완료!\n총 %d/%d개 성공", success, total)
+        SkinBtn.Text = "Skin Unlock 완료 ✓"
+    end)
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- 클라이언트 표시 강화
+local originalGet = DataController.Get
+DataController.Get = function(self, key)
+    local data = originalGet(self, key)
+    if key == "WeaponInventory" or key == "CosmeticInventory" then
+        local proxy = data and table.clone(data) or {}
+        for name, v in pairs(CosmeticLibrary.Cosmetics) do
+            if v.Type == "Skin" or name:find("Weapon") or name:find("Knife") then
+                proxy[name] = proxy[name] or {Owned = true, Unlocked = true}
+            end
+        end
+        return proxy
+    end
+    return data
+end
+
+print("✅ Improved All Weapons + Skin UnlockAll UI 로드 완료")
